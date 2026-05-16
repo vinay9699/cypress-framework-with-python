@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Cypress generated output — never commit these
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+
+# Reports — generated on every run, not source code
+cypress/reports/
+allure-results/
+allure-report/
+
+# Secrets — NEVER commit real credentials
+cypress.env.json
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp

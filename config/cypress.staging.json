@@ -1,0 +1,13 @@
+{
+  "e2e": {
+    "baseUrl": "https://opensource-demo.orangehrmlive.com",
+    "env": {
+      "ENV": "staging",
+      "apiBaseUrl": "https://opensource-demo.orangehrmlive.com"
+    },
+    "retries": {
+      "runMode": 2,
+      "openMode": 1
+    }
+  }
+}

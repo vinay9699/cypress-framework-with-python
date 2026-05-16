@@ -1,0 +1,212 @@
+name: Cypress E2E Tests
+
+# =============================================================================
+# TRIGGERS
+# =============================================================================
+# Runs on:
+#   - Every push to main or develop branches
+#   - Every pull request targeting main
+#   - Manual trigger from the GitHub Actions UI (workflow_dispatch)
+#   - Scheduled nightly run at 02:00 UTC
+# =============================================================================
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, staging, prod]
+      tags:
+        description: 'Test tags to run (e.g. @smoke or @regression)'
+        required: false
+        default: '@smoke'
+  schedule:
+    # Nightly full regression at 02:00 UTC
+    - cron: '0 2 * * *'
+
+# =============================================================================
+# JOBS
+# =============================================================================
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # JOB 1: Smoke Tests — fast, run on every push & PR
+  # ---------------------------------------------------------------------------
+  smoke:
+    name: Smoke Tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Smoke Tests — ${{ matrix.browser }}
+        uses: cypress-io/github-action@v6
+        with:
+          browser: ${{ matrix.browser }}
+          command: npx cypress run --env grep=@smoke,ENV=dev
+        env:
+          CYPRESS_validUsername: ${{ secrets.CYPRESS_USERNAME }}
+          CYPRESS_validPassword: ${{ secrets.CYPRESS_PASSWORD }}
+
+      - name: Upload Mochawesome JSON results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mochawesome-smoke-${{ matrix.browser }}
+          path: cypress/reports/mochawesome/
+          retention-days: 7
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-smoke-${{ matrix.browser }}
+          path: cypress/screenshots/
+          retention-days: 7
+
+      - name: Upload videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: videos-smoke-${{ matrix.browser }}
+          path: cypress/videos/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # JOB 2: Full Regression — nightly or manual trigger
+  # ---------------------------------------------------------------------------
+  regression:
+    name: Full Regression
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox, edge]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Full Regression — ${{ matrix.browser }}
+        uses: cypress-io/github-action@v6
+        with:
+          browser: ${{ matrix.browser }}
+          command: >
+            npx cypress run
+            --env grep=${{ github.event.inputs.tags || '@regression' }},ENV=${{ github.event.inputs.environment || 'dev' }}
+        env:
+          CYPRESS_validUsername: ${{ secrets.CYPRESS_USERNAME }}
+          CYPRESS_validPassword: ${{ secrets.CYPRESS_PASSWORD }}
+
+      - name: Upload Mochawesome JSON results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mochawesome-regression-${{ matrix.browser }}
+          path: cypress/reports/mochawesome/
+          retention-days: 14
+
+      - name: Upload JUnit XML results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-regression-${{ matrix.browser }}
+          path: cypress/reports/junit/
+          retention-days: 14
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.browser }}
+          path: allure-results/
+          retention-days: 14
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-regression-${{ matrix.browser }}
+          path: cypress/screenshots/
+          retention-days: 14
+
+      - name: Upload videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: videos-regression-${{ matrix.browser }}
+          path: cypress/videos/
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # JOB 3: Generate & Publish Mochawesome HTML Report
+  # Runs after smoke/regression, merges all JSON files into one HTML report
+  # ---------------------------------------------------------------------------
+  report:
+    name: Publish Mochawesome Report
+    runs-on: ubuntu-latest
+    needs: [smoke]
+    if: always() && github.event_name != 'schedule'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download all Mochawesome artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mochawesome-smoke-*
+          path: cypress/reports/mochawesome/
+          merge-multiple: true
+
+      - name: Generate merged HTML report
+        run: npm run report:mochawesome
+
+      - name: Upload merged HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mochawesome-html-report
+          path: cypress/reports/mochawesome/html/
+          retention-days: 30

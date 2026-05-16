@@ -1,0 +1,16 @@
+{
+  "plugins": ["cypress"],
+  "extends": ["plugin:cypress/recommended"],
+  "env": {
+    "cypress/globals": true,
+    "es6": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-console": "off"
+  }
+}
