@@ -14,6 +14,17 @@
 // Import all custom cy.* commands from commands.js
 import './commands'
 
+// Import test data factory commands (cy.createEmployee, cy.deleteEmployee, etc.)
+import './data-factory'
+
+// Import AJV-based schema validation command (cy.validateSchema)
+import './validate-schema'
+
+// Import @percy/cypress for visual regression snapshots (cy.percySnapshot)
+// Snapshots are only uploaded when running through `percy exec`;
+// without PERCY_TOKEN the command is a safe no-op.
+import '@percy/cypress'
+
 // Register Allure Cypress support so each test automatically gets
 // Allure metadata (title, status, attachments) written to allure-results/.
 import 'allure-cypress'

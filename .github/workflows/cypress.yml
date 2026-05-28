@@ -34,6 +34,30 @@ on:
 # JOBS
 # =============================================================================
 jobs:
+  # ---------------------------------------------------------------------------
+  # JOB 0: Lint & Format Check — fast gate on every push & PR
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npx eslint "cypress/**/*.js" --max-warnings 0
+
+      - name: Check Prettier formatting
+        run: npm run format:check
 
   # ---------------------------------------------------------------------------
   # JOB 1: Smoke Tests — fast, run on every push & PR
@@ -41,6 +65,7 @@ jobs:
   smoke:
     name: Smoke Tests (${{ matrix.browser }})
     runs-on: ubuntu-latest
+    needs: [lint]
     if: github.event_name != 'schedule'
 
     strategy:
@@ -94,12 +119,127 @@ jobs:
           path: cypress/videos/
           retention-days: 7
 
+      # -----------------------------------------------------------------------
+      # FLAKY TEST TELEMETRY
+      # Parses JUnit XML files produced by mocha-junit-reporter and surfaces
+      # any test that was retried (retries > 0) as a workflow warning.
+      # Output is also uploaded as an artifact for trend analysis.
+      # -----------------------------------------------------------------------
+      - name: Detect flaky tests from JUnit results
+        if: always()
+        shell: bash
+        run: |
+          JUNIT_DIR="cypress/reports/junit"
+          TELEMETRY_FILE="cypress/reports/flaky-tests-${{ matrix.browser }}.txt"
+          mkdir -p cypress/reports
+
+          if [ ! -d "$JUNIT_DIR" ] || [ -z "$(ls -A $JUNIT_DIR/*.xml 2>/dev/null)" ]; then
+            echo "No JUnit XML files found — skipping flaky detection." > "$TELEMETRY_FILE"
+            exit 0
+          fi
+
+          echo "=== Flaky Test Report — ${{ matrix.browser }} ===" > "$TELEMETRY_FILE"
+          echo "Run: ${{ github.run_number }}  Commit: ${{ github.sha }}" >> "$TELEMETRY_FILE"
+          echo "" >> "$TELEMETRY_FILE"
+
+          FLAKY_COUNT=0
+          for xml in "$JUNIT_DIR"/*.xml; do
+            # Tests that have a <rerun-failure> or retries attribute > 0
+            while IFS= read -r line; do
+              TEST_NAME=$(echo "$line" | grep -oP '(?<=name=")[^"]+' | head -1)
+              RETRY_VAL=$(echo "$line" | grep -oP '(?<=retries=")[^"]+' | head -1)
+              if [ -n "$TEST_NAME" ] && [ "${RETRY_VAL:-0}" -gt 0 ] 2>/dev/null; then
+                echo "  FLAKY [$RETRY_VAL retries]: $TEST_NAME" >> "$TELEMETRY_FILE"
+                FLAKY_COUNT=$((FLAKY_COUNT + 1))
+              fi
+            done < <(grep -E '<testcase' "$xml")
+          done
+
+          if [ "$FLAKY_COUNT" -eq 0 ]; then
+            echo "  No flaky tests detected in this run." >> "$TELEMETRY_FILE"
+          else
+            echo "" >> "$TELEMETRY_FILE"
+            echo "Total flaky tests: $FLAKY_COUNT" >> "$TELEMETRY_FILE"
+            echo "::warning::$FLAKY_COUNT flaky test(s) detected on ${{ matrix.browser }} — see flaky-tests artifact for details."
+          fi
+
+          cat "$TELEMETRY_FILE"
+
+      - name: Upload flaky test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-tests-smoke-${{ matrix.browser }}
+          path: cypress/reports/flaky-tests-${{ matrix.browser }}.txt
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # JOB 1b: Parallel Spec Groups — spec-level parallelism without Cypress Cloud
+  # Each group runs a different folder of specs on its own runner in parallel.
+  # Add spec files to any group or add new groups as the suite grows.
+  # ---------------------------------------------------------------------------
+  parallel:
+    name: Parallel — ${{ matrix.group }}
+    runs-on: ubuntu-latest
+    needs: [lint]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: auth
+            specs: 'cypress/e2e/login/**'
+          - group: api
+            specs: 'cypress/e2e/api/**'
+          - group: visual
+            specs: 'cypress/e2e/visual/**'
+          - group: reference
+            specs: 'cypress/e2e/reference/**'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run spec group — ${{ matrix.group }}
+        uses: cypress-io/github-action@v6
+        with:
+          browser: chrome
+          command: >
+            npx cypress run
+            --spec "${{ matrix.specs }}"
+            --env ENV=${{ github.event.inputs.environment || 'dev' }}
+        env:
+          CYPRESS_validUsername: ${{ secrets.CYPRESS_USERNAME }}
+          CYPRESS_validPassword: ${{ secrets.CYPRESS_PASSWORD }}
+          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parallel-${{ matrix.group }}
+          path: |
+            cypress/reports/mochawesome/
+            cypress/screenshots/
+          retention-days: 14
+
   # ---------------------------------------------------------------------------
   # JOB 2: Full Regression — nightly or manual trigger
   # ---------------------------------------------------------------------------
   regression:
     name: Full Regression
     runs-on: ubuntu-latest
+    needs: [lint]
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
     strategy:
@@ -171,6 +311,53 @@ jobs:
           path: cypress/videos/
           retention-days: 14
 
+      - name: Detect flaky tests from JUnit results
+        if: always()
+        shell: bash
+        run: |
+          JUNIT_DIR="cypress/reports/junit"
+          TELEMETRY_FILE="cypress/reports/flaky-tests-${{ matrix.browser }}.txt"
+          mkdir -p cypress/reports
+
+          if [ ! -d "$JUNIT_DIR" ] || [ -z "$(ls -A $JUNIT_DIR/*.xml 2>/dev/null)" ]; then
+            echo "No JUnit XML files found — skipping flaky detection." > "$TELEMETRY_FILE"
+            exit 0
+          fi
+
+          echo "=== Flaky Test Report — ${{ matrix.browser }} ===" > "$TELEMETRY_FILE"
+          echo "Run: ${{ github.run_number }}  Commit: ${{ github.sha }}" >> "$TELEMETRY_FILE"
+          echo "" >> "$TELEMETRY_FILE"
+
+          FLAKY_COUNT=0
+          for xml in "$JUNIT_DIR"/*.xml; do
+            while IFS= read -r line; do
+              TEST_NAME=$(echo "$line" | grep -oP '(?<=name=")[^"]+' | head -1)
+              RETRY_VAL=$(echo "$line" | grep -oP '(?<=retries=")[^"]+' | head -1)
+              if [ -n "$TEST_NAME" ] && [ "${RETRY_VAL:-0}" -gt 0 ] 2>/dev/null; then
+                echo "  FLAKY [$RETRY_VAL retries]: $TEST_NAME" >> "$TELEMETRY_FILE"
+                FLAKY_COUNT=$((FLAKY_COUNT + 1))
+              fi
+            done < <(grep -E '<testcase' "$xml")
+          done
+
+          if [ "$FLAKY_COUNT" -eq 0 ]; then
+            echo "  No flaky tests detected in this run." >> "$TELEMETRY_FILE"
+          else
+            echo "" >> "$TELEMETRY_FILE"
+            echo "Total flaky tests: $FLAKY_COUNT" >> "$TELEMETRY_FILE"
+            echo "::warning::$FLAKY_COUNT flaky test(s) detected on ${{ matrix.browser }} — see flaky-tests artifact for details."
+          fi
+
+          cat "$TELEMETRY_FILE"
+
+      - name: Upload flaky test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-tests-regression-${{ matrix.browser }}
+          path: cypress/reports/flaky-tests-${{ matrix.browser }}.txt
+          retention-days: 30
+
   # ---------------------------------------------------------------------------
   # JOB 3: Generate & Publish Mochawesome HTML Report
   # Runs after smoke/regression, merges all JSON files into one HTML report
@@ -203,6 +390,44 @@ jobs:
 
       - name: Generate merged HTML report
         run: npm run report:mochawesome
+
+      # -----------------------------------------------------------------------
+      # GITHUB JOB SUMMARY — visible on the Actions run page without artifacts
+      # -----------------------------------------------------------------------
+      - name: Write GitHub job summary
+        if: always()
+        run: |
+          node -e "
+          const fs = require('fs');
+          const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+          try {
+            const raw = fs.readFileSync('cypress/reports/mochawesome/merged.json', 'utf8');
+            const report = JSON.parse(raw);
+            const s = report.stats || {};
+            const passRate = s.tests > 0 ? ((s.passes / s.tests) * 100).toFixed(1) : '0.0';
+            const duration = Math.round((s.duration || 0) / 1000);
+            const lines = [
+              '## Cypress Test Results',
+              '',
+              '| Metric | Value |',
+              '|---|---|',
+              '| Passing   | ' + (s.passes   || 0) + ' |',
+              '| Failing   | ' + (s.failures  || 0) + ' |',
+              '| Pending   | ' + (s.pending   || 0) + ' |',
+              '| Pass rate | ' + passRate + '% |',
+              '| Duration  | ' + duration + 's |',
+              '',
+              s.failures > 0
+                ? '> **' + s.failures + ' test(s) failed.** Check screenshots and video artifacts.'
+                : '> All tests passed.',
+              '',
+              '_Generated from merged Mochawesome report_',
+            ];
+            fs.appendFileSync(summaryFile, lines.join('\n') + '\n');
+          } catch(e) {
+            fs.appendFileSync(summaryFile, '## Test results unavailable\n\n' + e.message + '\n');
+          }
+          "
 
       - name: Upload merged HTML report
         uses: actions/upload-artifact@v4

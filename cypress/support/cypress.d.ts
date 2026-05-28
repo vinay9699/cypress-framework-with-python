@@ -15,7 +15,6 @@
 
 declare namespace Cypress {
   interface Chainable<Subject = any> {
-
     // =========================================================================
     // AUTHENTICATION
     // =========================================================================
@@ -139,13 +138,28 @@ declare namespace Cypress {
     interceptRequest(method: string, url: string, alias: string): Chainable<void>
 
     /** Intercept and return a fake response from a fixture or inline object. */
-    stubApiResponse(method: string, urlPattern: string, fixture: string, alias: string): Chainable<void>
+    stubApiResponse(
+      method: string,
+      urlPattern: string,
+      fixture: string,
+      alias: string
+    ): Chainable<void>
 
     /** Alias for stubApiResponse() — accepts fixture filename or inline body. */
-    mockApiResponse(method: string, url: string, response: string | object, alias: string): Chainable<void>
+    mockApiResponse(
+      method: string,
+      url: string,
+      response: string | object,
+      alias: string
+    ): Chainable<void>
 
     /** Intercept and force an HTTP error response. */
-    stubApiError(method: string, urlPattern: string, statusCode: number, alias: string): Chainable<void>
+    stubApiError(
+      method: string,
+      urlPattern: string,
+      statusCode: number,
+      alias: string
+    ): Chainable<void>
 
     // =========================================================================
     // NOTIFICATIONS
@@ -243,6 +257,31 @@ declare namespace Cypress {
     getByTestId(testId: string): Chainable<JQuery<HTMLElement>>
 
     // =========================================================================
+    // UI ACTION WRAPPERS
+    // =========================================================================
+
+    /** Click an element after asserting it is visible. */
+    clickElement(selector: string): Chainable<void>
+
+    /** Clear and type text into an input after asserting visibility. */
+    typeText(selector: string, text: string): Chainable<void>
+
+    /** Select value(s) from a native dropdown. */
+    selectDropdown(selector: string, value: string | string[]): Chainable<void>
+
+    /** Assert an element contains expected text. */
+    verifyText(selector: string, expectedText: string): Chainable<void>
+
+    /** Assert an element is visible. */
+    verifyElementVisible(selector: string): Chainable<void>
+
+    /** Trigger mouseover on an element. */
+    hoverElement(selector: string): Chainable<void>
+
+    /** Scroll until element is in view. */
+    scrollToElement(selector: string): Chainable<void>
+
+    // =========================================================================
     // RETRY & RESILIENCE
     // =========================================================================
 
@@ -298,5 +337,53 @@ declare namespace Cypress {
       matchColumn: string,
       matchValue: string
     ): Chainable<Record<string, string>[]>
+
+    // -------------------------------------------------------------------------
+    // DATA FACTORY
+    // -------------------------------------------------------------------------
+
+    /** Create a test employee via the OrangeHRM API. Yields the full created record. */
+    createEmployee(
+      overrides?: Partial<{
+        firstName: string
+        lastName: string
+        employeeId: string
+      }>
+    ): Chainable<Record<string, unknown>>
+
+    /** Delete a test employee by empNumber via the OrangeHRM API. */
+    deleteEmployee(empNumber: number): Chainable<void>
+
+    /** Fetch a single employee record by empNumber. Yields the record object. */
+    getEmployeeById(empNumber: number): Chainable<Record<string, unknown>>
+
+    // -------------------------------------------------------------------------
+    // SCHEMA VALIDATION
+    // -------------------------------------------------------------------------
+
+    /**
+     * Validate a parsed API response body against a JSON Schema using AJV.
+     * Fails the test with a descriptive error message if validation fails.
+     *
+     * @param body   - parsed response object to validate
+     * @param schema - JSON Schema (Draft-07) definition object
+     */
+    validateSchema(body: object, schema: object): Chainable<void>
+
+    // -------------------------------------------------------------------------
+    // VISUAL REGRESSION (Percy)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Capture a Percy visual snapshot.
+     * Is a safe no-op when PERCY_TOKEN is not set / not running via `percy exec`.
+     *
+     * @param name    - unique snapshot name
+     * @param options - optional Percy snapshot options
+     */
+    percySnapshot(
+      name: string,
+      options?: { widths?: number[]; minHeight?: number }
+    ): Chainable<void>
   }
 }

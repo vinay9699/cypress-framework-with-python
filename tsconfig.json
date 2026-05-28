@@ -3,15 +3,20 @@
     "target": "ES2020",
     "lib": ["ES2020", "DOM"],
     "types": ["cypress"],
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowJs": true,
     "checkJs": false,
+    // Staged strictness — full strict mode left for when tests are migrated to TS.
+    // Enable the highest-value checks that catch real bugs without requiring type
+    // annotations on every existing JS file.
     "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": false,
     "noEmit": true
   },
-  "include": [
-    "cypress/**/*.js",
-    "cypress/**/*.ts",
-    "cypress/**/*.d.ts"
-  ]
+  "include": ["cypress/**/*.js", "cypress/**/*.ts", "cypress/**/*.d.ts"]
 }

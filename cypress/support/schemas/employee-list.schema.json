@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OrangeHRM Employee List Response",
+  "description": "Contract for GET /api/v2/pim/employees response body",
+  "type": "object",
+  "required": ["data", "meta"],
+  "additionalProperties": true,
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["empNumber", "firstName", "lastName"],
+        "additionalProperties": true,
+        "properties": {
+          "empNumber": { "type": "number", "minimum": 1 },
+          "firstName": { "type": "string", "minLength": 1 },
+          "lastName": { "type": "string", "minLength": 1 },
+          "employeeId": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": ["total"],
+      "additionalProperties": true,
+      "properties": {
+        "total": { "type": "number", "minimum": 0 },
+        "offset": { "type": "number", "minimum": 0 },
+        "limit": { "type": "number", "minimum": 1 }
+      }
+    }
+  }
+}

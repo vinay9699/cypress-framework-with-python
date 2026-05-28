@@ -1,6 +1,12 @@
+/// <reference types="cypress" />
+// @ts-check
 // =============================================================================
 // commands.js — Custom Cypress Commands
 // =============================================================================
+// @ts-check enables TypeScript type-checking via JSDoc on this plain JS file.
+// This is the staged migration path toward full .ts — no rename required.
+// IDE autocomplete, null-checks, and type errors are now surfaced immediately.
+//
 // All commands defined here are globally available as cy.<commandName>()
 // in EVERY test file across the entire framework — no import needed.
 //
@@ -21,7 +27,6 @@
 //   14. UTILITIES          — getByDataCy, getByLabel, getByPlaceholder
 // =============================================================================
 
-
 // =============================================================================
 // 1. AUTHENTICATION
 // =============================================================================
@@ -37,8 +42,10 @@
  */
 Cypress.Commands.add('login', (username, password) => {
   cy.visit('/web/index.php/auth/login')
-  cy.get('[name="username"]').clear().type(username)
-  cy.get('[name="password"]').clear().type(password)
+  cy.get('[name="username"]').clear()
+  cy.get('[name="username"]').type(username)
+  cy.get('[name="password"]').clear()
+  cy.get('[name="password"]').type(password)
   cy.get('[type="submit"]').click()
   cy.url().should('include', '/dashboard/index')
 })
@@ -64,8 +71,10 @@ Cypress.Commands.add('loginBySession', (username, password) => {
     [username, password],
     () => {
       cy.visit('/web/index.php/auth/login')
-      cy.get('[name="username"]').clear().type(username)
-      cy.get('[name="password"]').clear().type(password)
+      cy.get('[name="username"]').clear()
+      cy.get('[name="username"]').type(username)
+      cy.get('[name="password"]').clear()
+      cy.get('[name="password"]').type(password)
       cy.get('[type="submit"]').click()
       cy.url().should('include', '/dashboard/index')
     },
@@ -106,7 +115,6 @@ Cypress.Commands.add('clearSession', () => {
   cy.window().then((win) => win.sessionStorage.clear())
 })
 
-
 // =============================================================================
 // 2. NAVIGATION
 // =============================================================================
@@ -127,7 +135,6 @@ Cypress.Commands.add('visitWithParams', (path, params) => {
   const query = new URLSearchParams(params).toString()
   cy.visit(`${path}?${query}`)
 })
-
 
 // =============================================================================
 // 3. WAITING
@@ -164,7 +171,6 @@ Cypress.Commands.add('waitForApiResponse', (alias) => {
   cy.wait(alias).its('response.statusCode').should('be.oneOf', [200, 201])
 })
 
-
 // =============================================================================
 // 4. FORMS
 // =============================================================================
@@ -187,7 +193,8 @@ Cypress.Commands.add('waitForApiResponse', (alias) => {
  */
 Cypress.Commands.add('fillForm', (formData) => {
   Object.entries(formData).forEach(([selector, value]) => {
-    cy.get(selector).clear().type(value)
+    cy.get(selector).clear()
+    cy.get(selector).type(value)
   })
 })
 
@@ -206,10 +213,7 @@ Cypress.Commands.add('fillForm', (formData) => {
  */
 Cypress.Commands.add('selectOxdDropdown', (containerSelector, optionText) => {
   cy.get(containerSelector).click()
-  cy.get('.oxd-select-dropdown')
-    .should('be.visible')
-    .contains(optionText)
-    .click()
+  cy.get('.oxd-select-dropdown').should('be.visible').contains(optionText).click()
 })
 
 /**
@@ -224,9 +228,9 @@ Cypress.Commands.add('selectOxdDropdown', (containerSelector, optionText) => {
  * @param {string} text     - text to type after clearing
  */
 Cypress.Commands.add('clearAndType', (selector, text) => {
-  cy.get(selector).clear().type(text)
+  cy.get(selector).clear()
+  cy.get(selector).type(text)
 })
-
 
 // =============================================================================
 // 5. API REQUESTS
@@ -336,7 +340,6 @@ Cypress.Commands.add('apiDelete', (url, options = {}) => {
   })
 })
 
-
 // =============================================================================
 // 6. NETWORK INTERCEPT
 // =============================================================================
@@ -408,7 +411,6 @@ Cypress.Commands.add('stubApiError', (method, urlPattern, statusCode, alias) => 
   }).as(alias)
 })
 
-
 // =============================================================================
 // 7. NOTIFICATIONS / TOASTS
 // =============================================================================
@@ -458,7 +460,6 @@ Cypress.Commands.add('verifyToastType', (toastType) => {
   cy.get(`.oxd-toast--${toastType}`, { timeout: 8000 }).should('be.visible')
 })
 
-
 // =============================================================================
 // 8. TABLES
 // =============================================================================
@@ -505,7 +506,6 @@ Cypress.Commands.add('getTableRowByText', (text) => {
   return cy.get('.oxd-table-body .oxd-table-row').contains(text).parents('.oxd-table-row')
 })
 
-
 // =============================================================================
 // 9. SEARCH
 // =============================================================================
@@ -523,10 +523,11 @@ Cypress.Commands.add('getTableRowByText', (text) => {
  * @param {string} searchText    - text to search for
  */
 Cypress.Commands.add('typeAndSearch', (inputSelector, searchText) => {
-  cy.get(inputSelector).clear().type(searchText)
+  cy.get(inputSelector).clear()
+  cy.get(inputSelector).type(searchText)
+  // eslint-disable-next-line cypress/no-unnecessary-waiting
   cy.wait(500)
 })
-
 
 // =============================================================================
 // 10. STORAGE
@@ -563,7 +564,6 @@ Cypress.Commands.add('getLocalStorage', (key) => {
   return cy.window().its(`localStorage.${key}`)
 })
 
-
 // =============================================================================
 // 11. RESPONSIVE / VIEWPORT
 // =============================================================================
@@ -577,7 +577,7 @@ Cypress.Commands.add('getLocalStorage', (key) => {
  * Usage: cy.setViewportMobile()
  */
 Cypress.Commands.add('setViewportMobile', () => {
-  cy.viewport(390, 844)   // iPhone 14
+  cy.viewport(390, 844) // iPhone 14
 })
 
 /**
@@ -588,7 +588,7 @@ Cypress.Commands.add('setViewportMobile', () => {
  * Usage: cy.setViewportTablet()
  */
 Cypress.Commands.add('setViewportTablet', () => {
-  cy.viewport(820, 1180)  // iPad Air
+  cy.viewport(820, 1180) // iPad Air
 })
 
 /**
@@ -612,7 +612,6 @@ Cypress.Commands.add('setViewportDesktop', () => {
 Cypress.Commands.add('setViewportWidescreen', () => {
   cy.viewport(1920, 1080)
 })
-
 
 // =============================================================================
 // 12. ACCESSIBILITY
@@ -674,7 +673,6 @@ Cypress.Commands.add('verifyTabOrder', (selectors) => {
   })
 })
 
-
 // =============================================================================
 // 13. PERFORMANCE
 // =============================================================================
@@ -704,7 +702,6 @@ Cypress.Commands.add('measurePageLoadTime', (path, maxMs = 5000) => {
     expect(loadTime).to.be.lessThan(maxMs)
   })
 })
-
 
 // =============================================================================
 // 14. UTILITIES — element finders
@@ -736,7 +733,8 @@ Cypress.Commands.add('getByDataCy', (selector) => {
  * @param {string} labelText - visible text of the label element
  */
 Cypress.Commands.add('getByLabel', (labelText) => {
-  return cy.contains('label', labelText)
+  return cy
+    .contains('label', labelText)
     .invoke('attr', 'for')
     .then((id) => cy.get(`#${id}`))
 })
@@ -770,7 +768,6 @@ Cypress.Commands.add('getByTestId', (testId) => {
   return cy.get(`[data-testid="${testId}"]`)
 })
 
-
 // =============================================================================
 // 15. AUTHENTICATION — ADDITIONAL
 // =============================================================================
@@ -785,8 +782,10 @@ Cypress.Commands.add('getByTestId', (testId) => {
  */
 Cypress.Commands.add('loginViaUI', (username, password) => {
   cy.visit('/web/index.php/auth/login')
-  cy.get('[name="username"]').clear().type(username)
-  cy.get('[name="password"]').clear().type(password)
+  cy.get('[name="username"]').clear()
+  cy.get('[name="username"]').type(username)
+  cy.get('[name="password"]').clear()
+  cy.get('[name="password"]').type(password)
   cy.get('[type="submit"]').click()
   cy.url().should('include', '/dashboard/index')
 })
@@ -857,7 +856,6 @@ Cypress.Commands.add('getAuthToken', () => {
   return cy.window().its('localStorage.authToken')
 })
 
-
 // =============================================================================
 // 16. NETWORK ALIASES — matching the standard method name list
 // =============================================================================
@@ -902,7 +900,6 @@ Cypress.Commands.add('mockApiResponse', (method, url, response, alias) => {
   cy.intercept(method, url, body).as(alias)
 })
 
-
 // =============================================================================
 // 17. WAIT & RETRY — ADDITIONAL
 // =============================================================================
@@ -934,6 +931,7 @@ Cypress.Commands.add('retryAction', (actionFn, retries = 3, delay = 500) => {
       actionFn()
     } catch (err) {
       if (attempts < retries) {
+        // eslint-disable-next-line cypress/no-unnecessary-waiting
         cy.wait(delay)
         attempt()
       } else {
@@ -967,10 +965,10 @@ Cypress.Commands.add('waitForNetworkIdle', (idleMs = 500, timeout = 10000) => {
 
   // Wait for the last request to complete, then wait for idle period
   cy.wait('@anyRequest', { timeout }).then(() => {
+    // eslint-disable-next-line cypress/no-unnecessary-waiting
     cy.wait(idleMs)
   })
 })
-
 
 // =============================================================================
 // 18. FIXTURE & DATA
@@ -993,7 +991,6 @@ Cypress.Commands.add('loadFixture', (fileName) => {
   return cy.fixture(fileName)
 })
 
-
 // =============================================================================
 // 19. VIEWPORT — generic setter
 // =============================================================================
@@ -1013,7 +1010,6 @@ Cypress.Commands.add('loadFixture', (fileName) => {
 Cypress.Commands.add('setViewport', (width, height) => {
   cy.viewport(width, height)
 })
-
 
 // =============================================================================
 // 20. EXCEL DATA — read test data from .xlsx files
@@ -1093,4 +1089,89 @@ Cypress.Commands.add('readExcelRow', (filePath, sheet, matchColumn, matchValue) 
  */
 Cypress.Commands.add('readExcelRows', (filePath, sheet, matchColumn, matchValue) => {
   return cy.task('readExcelRows', { filePath, sheet, matchColumn, matchValue })
+})
+
+// =============================================================================
+// 21. UI ACTION WRAPPERS — reusable global cy.* shortcuts
+// =============================================================================
+
+/**
+ * cy.clickElement(selector)
+ *
+ * Click an element after asserting it is visible.
+ *
+ * @param {string} selector - CSS selector
+ */
+Cypress.Commands.add('clickElement', (selector) => {
+  cy.get(selector).should('be.visible').click()
+})
+
+/**
+ * cy.typeText(selector, text)
+ *
+ * Clear and type text into an input after asserting visibility.
+ *
+ * @param {string} selector - CSS selector
+ * @param {string} text     - text to type
+ */
+Cypress.Commands.add('typeText', (selector, text) => {
+  cy.get(selector).should('be.visible').clear()
+  cy.get(selector).type(text)
+})
+
+/**
+ * cy.selectDropdown(selector, value)
+ *
+ * Select a value from a native <select> element.
+ *
+ * @param {string} selector - CSS selector of the select element
+ * @param {string|string[]} value - option value/text or array for multi-select
+ */
+Cypress.Commands.add('selectDropdown', (selector, value) => {
+  cy.get(selector).should('be.visible').select(value)
+})
+
+/**
+ * cy.verifyText(selector, expectedText)
+ *
+ * Assert an element contains the expected text.
+ *
+ * @param {string} selector     - CSS selector
+ * @param {string} expectedText - expected visible text
+ */
+Cypress.Commands.add('verifyText', (selector, expectedText) => {
+  cy.get(selector).should('contain.text', expectedText)
+})
+
+/**
+ * cy.verifyElementVisible(selector)
+ *
+ * Assert an element is visible on screen.
+ *
+ * @param {string} selector - CSS selector
+ */
+Cypress.Commands.add('verifyElementVisible', (selector) => {
+  cy.get(selector).should('be.visible')
+})
+
+/**
+ * cy.hoverElement(selector)
+ *
+ * Trigger mouseover on an element.
+ *
+ * @param {string} selector - CSS selector
+ */
+Cypress.Commands.add('hoverElement', (selector) => {
+  cy.get(selector).trigger('mouseover')
+})
+
+/**
+ * cy.scrollToElement(selector)
+ *
+ * Scroll until an element is in view.
+ *
+ * @param {string} selector - CSS selector
+ */
+Cypress.Commands.add('scrollToElement', (selector) => {
+  cy.get(selector).scrollIntoView()
 })
